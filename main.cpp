@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <atomic>
+#include <future>
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -219,10 +220,41 @@ namespace network{
 
 }
 
+namespace utils{
+	#include <sstream>
+
+	std::vector<std::string> split(const std::string& str, char delim){
+		std::string istringstream ss(str);
+		std::vector<std::string> result;
+
+		while(std::getline(ss, str, delim)){
+			result.push_back(std::move(str));
+		}
+
+		return result;
+	}
+};
+
 struct command_t{
 	std::string name;
 	std::map<std::string, std::string> arguments;
 };
+
+command_t parse_command(const std::string& str){
+	std::vector<std::string> params = utils::split(str, ' ');
+	command_t command;
+
+	command.name = params[0];
+
+	for(int i = 1; i < params.size(); i+=2){
+		std::string key = params[i];
+		std::string value = params[i+1];
+
+		command.arguments.emplace(key, value);
+	}
+
+	return command;
+}
 
 class Handler{
 public:
@@ -293,7 +325,6 @@ public:
 	Daemon(std::string socket_path): 
 		sock(std::make_shared<UnixSocket>(socket_path)) 
 	{
-
 	}
 
 	void Start(){
@@ -309,20 +340,29 @@ private:
 		std::string std_command;
 
 		while(_run){
-			std_command = sock->Read();
+			str_command = sock->Read();
 			auto command = parse_command(str_command);
+
+			if (command.name == "ping") {
+				host_stat stat;
+			} else if (command.name == "statistic"){
+
+			}
 		}
 	}
 
+	std::vector<host_stat&> statistic;
+
 	std::shared_ptr<UnixSocket> sock;
 	std::atomic<bool> _run;
+
+	std::map<std::string, std::function<>>;
 };
 
 int main(int argc, char** argv){
 	try{
 		Daemon daemon(argv[1]);
 		daemon.Start();
-
 	}catch(std::exception& exception){
 		std::cout << exception.what() << std::endl;
 	}
