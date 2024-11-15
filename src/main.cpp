@@ -23,6 +23,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/un.h>
+#include <signal.h>
+ #include <stdlib.h>
 
 #include "spdlog/spdlog.h"
 
@@ -256,13 +258,10 @@ struct command_t{
 	TYPE type;
 };
 
-constexpr std::size_t BUFFER_SIZE = 1024;
-
 class UnixSocket{
 public:
 	UnixSocket(std::string socket_path){
 		sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-		//int error = socketpair(AF_UNIX, SOCK_STREAN, 0, int *sv);
 
 		if(sock < 0){
 			throw std::logic_error("Erorr create socket");
@@ -290,7 +289,17 @@ public:
 		int write = read(sock, _buffer, BUFFER_SIZE);
 	}
 
+	// void Close(){
+	// 	close(sock);
+	// }
+
+	~UnixSocket(){
+		spdlog::info("UnixSocket closed");
+		close(sock);
+	}
+
 private:
+	constexpr std::size_t BUFFER_SIZE = 1024;
 	//constexpr std::size_t BUFFER_SIZE = 1024;
 	char _buffer[BUFFER_SIZE];
 	int sock;
@@ -321,35 +330,39 @@ class Daemon{
 public:
 	Daemon(std::string socket_path): 
 		sock(std::make_shared<UnixSocket>(socket_path)) 
-	{
-
+	{	
 	}
 
 	void Start(){
-		MainLoop();
+		std::thread ListenLoopThread(Daemon::UnixSocketListen, this);
+		std::thread TerminalLoopThread(Daemon::TerminalLoop, this);
+
+		ListenLoopThread.join();
+		TerminalLoopThread.join();
 	}
 
 private:
 
-	void MainLoop(){
+	void UnixSocketListen(){
 		std::string str_command;
 
 		while(_run){
 			str_command = sock->Read();
 			auto command = parse_command(str_command);
 
-			spdlog::info("Accept new command");
+			std::string command_type = ( command.type == command_t::TYPE::GET_PING ? "Ping" : "Get statistic" );
+
+			spdlog::info("Accept new command {}", command_type);
 
 			if(command.type == command_t::TYPE::GET_PING){
 				spdlog::info("Start ping session");
-
+				// TODO Thread pool or boost asio os something else
 				std::thread ping_sessin([](){
 					host_stat hstat{"192.168.0.107", 5, 0};
 					int res = network::ping(hstat);
 					if(res != 0){
 						spdlog::error("Ping session error");
 					}
-
 				});
 
 				ping_sessin.detach();
@@ -361,23 +374,40 @@ private:
 		}
 	}
 
-	void daemonize(){
+	void TerminalLoop(){
+		while(_run_terminal){
+			std::cout << "Enter command:" << std::endl;
+			// TODO
+		}
+	}
+
+	void Usage(){
+
+	}
+
+	void Daemonize(){
 		 daemon(0, 0);
 	}
 
 	std::shared_ptr<UnixSocket> sock;
+
 	std::atomic<bool> _run{true};
+	std::atomic<bool> _run_terminal{true};
 };
 
-/*
-command1:
-	ip send_count
-	statistic
-*/
+void signal_handler(int signum){
+	if(signum == SIGINT){
+		spdlog::info("Daemon stop");
+		exit(0);
+	}
+}
 
 int main(int argc, char** argv){
+
+	signal(SIGINT, signal_handler);
+
 	try{
-		spdlog::info("Start daemon");
+		spdlog::info("Daemon start");
 
 		Daemon daemon(argv[1]);
 		daemon.Start();
@@ -389,3 +419,9 @@ int main(int argc, char** argv){
 	return 0;
 };
 
+
+/*
+command1:
+	ip send_count
+	statistic
+*/
