@@ -194,6 +194,7 @@ namespace network{
 	    // create raw socket for icmp protocol
 	    int sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	    if (sock == -1) {
+	    	spdlog::error("Error create raw socket for icmp protocol");
 	        return -1;
 	    }
 
@@ -201,8 +202,10 @@ namespace network{
 	    struct timeval tv;
 	    tv.tv_sec = 0;
 	    tv.tv_usec = RECV_TIMEOUT_USEC;
+
 	    int ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 	    if (ret == -1) {
+	    	spdlog::error("Error set socket timeout option");
 	        return -1;
 	    }
 
@@ -215,6 +218,7 @@ namespace network{
 	        // time to send another packet
 	        if (get_timestamp() >= next_ts) {
 	            // send it
+	           	spdlog::info("Try to send echo request to ip {}", hstat.ip);
 	            spdlog::info("Send {}/{} ping message", hstat.times, tries);
 
 	            ret = send_echo_request(sock, &addr, ident, seq);
@@ -228,9 +232,8 @@ namespace network{
 	            next_ts += 1;
 	            // increase sequence number
 	            seq += 1;
-	        }
-
-	        // try to receive and print reply
+	          	tries++;
+	        }	        // try to receive and print reply
 	        // ret = recv_echo_reply(sock, ident);
 	        // if (ret == -1) {
 	        //     perror("Receive failed");
@@ -323,9 +326,6 @@ public:
 	}
 
 	void Start(){
-		std::cout << "Start daemon" << std::endl;
-		//daemon(0, 0);
-
 		MainLoop();
 	}
 
@@ -345,7 +345,11 @@ private:
 
 				std::thread ping_sessin([](){
 					host_stat hstat{"192.168.0.107", 5, 0};
-					network::ping(hstat);
+					int res = network::ping(hstat);
+					if(res != 0){
+						spdlog::error("Ping session error");
+					}
+
 				});
 
 				ping_sessin.detach();
@@ -357,8 +361,12 @@ private:
 		}
 	}
 
+	void daemonize(){
+		 daemon(0, 0);
+	}
+
 	std::shared_ptr<UnixSocket> sock;
-	std::atomic<bool> _run;
+	std::atomic<bool> _run{true};
 };
 
 /*
