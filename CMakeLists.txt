@@ -8,7 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -O3")
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 
-set(SOURCES src/main.cpp)
+set(SOURCES src/daemon.cpp)
 set(PATH_TO_LIBS ${CMAKE_SOURCE_DIR}/Libs )
 set(SPDLOG_LIB ${CMAKE_SOURCE_DIR}/Libs/spdlog/libspdlog.a)
 

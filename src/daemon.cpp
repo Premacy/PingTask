@@ -37,7 +37,6 @@ namespace utils{
 		while(std::getline(stream, buff, delim)){
 			result.push_back(std::move(buff));
 		}
-
 		return result;
 	}
 };
@@ -258,12 +257,12 @@ struct command_t{
 	TYPE type;
 };
 
-class UnixSocket{
+class UnixSocket {
 public:
-	UnixSocket(std::string socket_path){
+	UnixSocket(std::string socket_path) {
 		sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 
-		if(sock < 0){
+		if(sock < 0) {
 			throw std::logic_error("Erorr create socket");
 		}
 
@@ -274,17 +273,25 @@ public:
 
 		int err_conn = bind(sock, (const sockaddr*)&addr, sizeof(addr));
 
-		if(err_conn < 0){
+		if(err_conn < 0) {
 			throw std::logic_error("Erorr create socket");
 		}
 	}
 
-	std::string Read(){
+	std::string Read() {
+		if (!sock) {
+			throw std::logic_error("UnixSocket not initialized");
+		}
+
 		int result = read(sock, _buffer, BUFFER_SIZE);
 		return _buffer;
 	}
 
-	void Write(std::string str){
+	void Write(std::string str) {
+		if (!sock) {
+			throw std::logic_error("UnixSocket not initialized");
+		}
+
 		memcpy(_buffer, str.data(), str.size());
 		int write = read(sock, _buffer, BUFFER_SIZE);
 	}
@@ -293,16 +300,15 @@ public:
 	// 	close(sock);
 	// }
 
-	~UnixSocket(){
+	~UnixSocket() {
 		spdlog::info("UnixSocket closed");
 		close(sock);
 	}
 
 private:
-	constexpr std::size_t BUFFER_SIZE = 1024;
-	//constexpr std::size_t BUFFER_SIZE = 1024;
-	char _buffer[BUFFER_SIZE];
-	int sock;
+	const std::size_t BUFFER_SIZE = 1024;
+	char _buffer[1024];
+	int sock = 0;
 };
 
 // class State{
@@ -334,23 +340,22 @@ public:
 	}
 
 	void Start(){
-		std::thread ListenLoopThread(Daemon::UnixSocketListen, this);
-		std::thread TerminalLoopThread(Daemon::TerminalLoop, this);
+		std::thread ListenLoopThread(&Daemon::UnixSocketListen, this);
+		std::thread TerminalLoopThread(&Daemon::TerminalLoop, this);
 
 		ListenLoopThread.join();
-		TerminalLoopThread.join();
+		//TerminalLoopThread.join();
 	}
 
 private:
-
-	void UnixSocketListen(){
+	void UnixSocketListen() {
 		std::string str_command;
 
 		while(_run){
 			str_command = sock->Read();
 			auto command = parse_command(str_command);
 
-			std::string command_type = ( command.type == command_t::TYPE::GET_PING ? "Ping" : "Get statistic" );
+			std::string command_type = (command.type == command_t::TYPE::GET_PING ? "Ping" : "Get statistic");
 
 			spdlog::info("Accept new command {}", command_type);
 
@@ -376,7 +381,7 @@ private:
 
 	void TerminalLoop(){
 		while(_run_terminal){
-			std::cout << "Enter command:" << std::endl;
+			//std::cout << "Enter command:" << std::endl;
 			// TODO
 		}
 	}
@@ -395,33 +400,35 @@ private:
 	std::atomic<bool> _run_terminal{true};
 };
 
-void signal_handler(int signum){
+void signal_handler(int signum) 
+{
 	if(signum == SIGINT){
 		spdlog::info("Daemon stop");
 		exit(0);
 	}
 }
 
-int main(int argc, char** argv){
+void usage(const char* progname) 
+{
+	std::cout << "Usage: " << progname << " <unix_socket_path>" <<std::endl;
+}
 
+int main(int argc, char** argv){
 	signal(SIGINT, signal_handler);
 
+	if (argc < 2) {
+		usage(argv[0]);
+		exit(-1);
+	}
 	try{
 		spdlog::info("Daemon start");
 
 		Daemon daemon(argv[1]);
 		daemon.Start();
 
-	}catch(std::exception& exception){
+	} catch (std::exception& exception) {
 		std::cout << exception.what() << std::endl;
 	}
 
 	return 0;
 };
-
-
-/*
-command1:
-	ip send_count
-	statistic
-*/
