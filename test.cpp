@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 	sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 		//int error = socketpair(AF_UNIX, SOCK_STREAN, 0, int *sv);
 
-	if(sock < 0){
+	if (sock < 0) {
 		std::cout << "Error : could not create socket" << std::endl;
 		exit(-1);
 	}
@@ -38,18 +38,22 @@ int main(int argc, char* argv[])
 
 	int err_conn = connect(sock, (const sockaddr*)&addr, sizeof(addr));
 
-	if(err_conn < 0){
+	if (err_conn < 0) {
 		std::cout << "Error : connection to socket_path " << socket_path << " could not established" << std::endl;
 		exit(-1);
 	}
 
 	std::string command;
-	while(true){
+	while (true) {
 		std::getline(std::cin, command);
 
 		int bytes_write = write(sock, command.data(), command.size());
 		std::cout << bytes_write << std::endl;
+		if (bytes_write < 0) {
+			std::cout << "Connection error. disconnected" << std::endl;
+			break;
+		}
 	}
 
-	exit(0);
+	exit(0); // ??
 }

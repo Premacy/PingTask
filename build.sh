@@ -1,6 +1,8 @@
 #!/bin/bash
 # cmake [<options>] -B <path-to-build> [-S <path-to-source>]
 
+BUILD_TYPE=debug
+
 BUILD_DIR=./build
 SOURCE_DIR=.
 COMPILER=clang
