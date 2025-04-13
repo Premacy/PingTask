@@ -1,11 +1,10 @@
 #pragma once
 
-#include <vector>
 #include <string>
+#include <vector>
 
-namespace utils
-{
+namespace utils {
 
-std::vector<std::string> SplitByChar(const std::string& str, char delim);
+std::vector<std::string> SplitByChar(const std::string &str, char delim);
 
-} //namespace utils
+} // namespace utils
